@@ -266,7 +266,7 @@ if not args.list:
             print('\033[1A', end='\x1b[2K')
             logger(f'Downloaded  {str(dlcounter).zfill(len(str(foundamt)))}/{foundamt}: {wantedfile["name"]}', 'green', True)
         else:
-            logger(f'Skipping    {str(dlcounter).zfill(len(str(foundamt)))}/{foundamt}: {wantedfile["name"]}', 'green')
+            logger(f'Already DLd {str(dlcounter).zfill(len(str(foundamt)))}/{foundamt}: {wantedfile["name"]}', 'green')
     logger('Downloading complete!', 'green', False)
 
 #Output missing ROMs, if any
