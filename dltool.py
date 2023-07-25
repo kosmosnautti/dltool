@@ -11,11 +11,17 @@ from ftplib import FTP
 from progressbar import ProgressBar, Bar, ETA, FileTransferSpeed, Percentage, DataSize
 
 #Define constants
+#Myrient FTP-server address
 MYRIENTFTPADDR = 'ftp.myrient.erista.me'
+#Catalog URLs, to find out the catalog in use from DAT
 CATALOGURLS = {
     'https://www.no-intro.org': 'No-Intro',
     'http://redump.org/': 'Redump'
 }
+#Postfixes in DATs to strip away
+DATPOSTFIXES = [
+    ' (Retool)'
+]
 
 #Print output function
 def logger(str, color=None, rewrite=False):
@@ -86,6 +92,7 @@ wantedfiles = []
 missingroms = []
 collectiondir = []
 availableroms = {}
+foundcollections = []
 
 #Validate arguments
 if not os.path.isfile(args.inp):
@@ -109,6 +116,8 @@ for datchild in datroot:
     #Print out system information
     if datchild.tag == 'header':
         system = datchild.find('name').text
+        for fix in DATPOSTFIXES:
+            system = system.replace(fix, '')
         catalogurl = datchild.find('url').text
         if catalogurl in CATALOGURLS:
             catalog = CATALOGURLS[catalogurl]
@@ -152,20 +161,29 @@ if not catalog in maindir or args.catalog:
 ftp.cwd(catalog)
 contentdir = ftp.nlst()
 for content in contentdir:
-    if system.startswith(content):
-        collection = content
-        break
+    if content.startswith(system):
+        foundcollections.append(content)
+if len(foundcollections) == 1:
+    collection = foundcollections[0]
 if not collection or args.system:
     logger('Collection for DAT not automatically found, please select from the following:', 'yellow')
     dirnbr = 1
-    for dir in contentdir:
-        logger(f'{str(dirnbr).ljust(2)}: {dir}', 'yellow')
-        dirnbr += 1
+    if len(foundcollections) > 1 and not args.system:
+        for foundcollection in foundcollections:
+            logger(f'{str(dirnbr).ljust(2)}: {foundcollection}', 'yellow')
+            dirnbr += 1
+    else:
+        for dir in contentdir:
+            logger(f'{str(dirnbr).ljust(2)}: {dir}', 'yellow')
+            dirnbr += 1
     sel = inputter('Input selected collection number: ', 'cyan')
     try:
         sel = int(sel)
         if sel > 0 and sel < dirnbr:
-            collection = contentdir[sel-1]
+            if len(foundcollections) > 1:
+                collection = foundcollections[sel-1]
+            else:
+                collection = contentdir[sel-1]
         else:
             logger('Input number out of range!', 'red')
             exit()
@@ -177,9 +195,9 @@ if not collection or args.system:
 ftp.cwd(collection)
 ftp.dir(collectiondir.append)
 for line in collectiondir:
-    file = line[28:].strip().split(' ', 5)
-    filename = file[5]
-    filesize = file[0]
+    file = re.findall('([0-9]{1,})[\s]{1,}[A-Za-z]{3,4}[\s]{1,}[0-9]{1,2}[\s]{1,}[0-9|:]{4,5}[\s]{1,}(.*?)\Z', line[28:].strip())
+    filesize = file[0][0]
+    filename = file[0][1]
     romname = re.sub(r'\.[(a-zA-Z0-9)]{1,3}\Z', '', filename)
     availableroms[romname] = {'name': romname, 'file': filename, 'size': filesize}
 
